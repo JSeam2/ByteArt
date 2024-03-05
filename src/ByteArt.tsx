@@ -1,54 +1,59 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 
 export type ByteArtProps = {
   rowCount?: number;
   colCount?: number;
   cellSize?: number;
-  border?: string;
   hexString?: string;
+  borderRadius?: number;
+  setHexString?: (hexString: string) => void;
 };
 
 export type ByteArtCellProps = {
   value?: number;
+  setValue?: (count: number, value: number) => void,
+  count?: number;
   width?: number;
   height?: number;
-  border?: string;
+  borderRadius?: number;
+  onColor?: string;
+  offColor?: string;
 }
 
 const ByteArtCell: React.FC<ByteArtCellProps> = ({
   value,
+  setValue = null,
+  count = 0,
   width,
   height,
-  border = "1px solid #888",
+  borderRadius,
+  onColor = "#CA2020",
+  offColor = "#444",
 }) => {
-  // Use useState to manage the color value of the cell
-  const [colorValue, setColorValue] = useState(value);
+  const [colorValue, setColorValue] = useState(value === 1 ? onColor : offColor);
 
-  // Function to generate a random color value
-  const generateRandomColorValue = () => Math.floor(Math.random() * 16777215);
+  // Update colorValue based on the value prop
+  useEffect(() => {
+    setColorValue(value === 1 ? onColor : offColor);
+  }, [value, onColor, offColor]);
 
-  // Update the color value to a new random value when the cell is clicked
   const handleClick = () => {
-    const newValue = generateRandomColorValue();
-    setColorValue(newValue);
+    if (setValue) {
+      setValue(count, value === 1 ? 0 : 1);
+    }
   };
-
-  // Convert the current color value to a color code for background
-  const color = colorValue ? `#${colorValue.toString(16).padStart(6, '0')}` : '#000000';
 
   return (
     <div
       style={{
         width: `${width}px`,
         height: `${height}px`,
-        backgroundColor: color, // Use the generated color as the background
-        border: border,
+        backgroundColor: colorValue,
         display: 'inline-block',
-        color: 'transparent', // Set text color to transparent
-        borderRadius: '2px',
-        cursor: 'pointer' // Change cursor to pointer to indicate clickable
+        borderRadius: `${borderRadius}px`,
+        cursor: 'pointer'
       }}
-      onClick={handleClick} // Attach the onClick event handler
+      onClick={handleClick}
     />
   );
 };
@@ -57,8 +62,11 @@ const ByteArt: React.FC<ByteArtProps> = ({
   rowCount = 16,
   colCount = 16,
   cellSize = 12,
-  hexString = "0x123456789ABCDEF123456789ABCDEF12"
+  borderRadius = 10,
+  hexString = "0xdea102f6f2ac65501b2610c36a37e873ada2bdbedcd40f78ca10955455ff9274",
+  setHexString = null,
 }) => {
+
   const hexStringToBinArray = (hexString: string): number[] => {
     // Remove the '0x' prefix if present
     if (hexString.startsWith('0x')) {
@@ -75,22 +83,66 @@ const ByteArt: React.FC<ByteArtProps> = ({
     return flatBinArray;
   }
 
-  let binArray = hexStringToBinArray(hexString);
+  const binArrayToHexString = (binArray: number[]): string => {
+    // Explicitly type the accumulator as string[]
+    const binGroups = binArray.reduce<string[]>((acc, bit, index) => {
+      const groupIndex = Math.floor(index / 4);
+      if (!acc[groupIndex]) {
+        acc[groupIndex] = ''; // Initialize a new group if it doesn't exist
+      }
+      acc[groupIndex] += bit.toString(); // Append the current bit to the current group
+      return acc;
+    }, []); // Initialize the accumulator as an empty array of strings
 
-  console.log(binArray);
+    // Convert each binary string group to its hexadecimal representation
+    const hexString = binGroups.map(binaryGroup => {
+      return parseInt(binaryGroup, 2).toString(16);
+    }).join('');
+
+    return `0x${hexString.padStart(Math.ceil(hexString.length / 2) * 2, '0')}`; // Ensure even length for hex string
+  };
+
+  const setOneCell = (count: number, newValue: number) => {
+    setCells(cells => cells.map((cell, index) => index === count ? newValue : cell));
+
+    if (setHexString) {
+      setHexString(binArrayToHexString(cells));
+    }
+  };
+
+  const initialCells = hexStringToBinArray(hexString);
+
+  const [cells, setCells] = useState<number[]>(initialCells);
+
+  useEffect(() => {
+    let binArray = hexStringToBinArray(hexString);
+    setCells(binArray);
+  }, []);
 
   const generateGrid = () => {
     let grid = [];
+    let count = 0;
     for (let row = 0; row < rowCount; row++) {
       for (let col = 0; col < colCount; col++) {
-        let cellValue = (row * colCount + col) % 16777215; // Ensure the value is within the RGB range
-        grid.push(<ByteArtCell key={`${row}-${col}`} value={cellValue} width={cellSize} height={cellSize} />);
+        grid.push(
+          <ByteArtCell
+            key={`${row}-${col}`}
+            count={count}
+            value={cells[count]}
+            width={cellSize}
+            height={cellSize}
+            borderRadius={borderRadius}
+            setValue={setOneCell}
+          />
+        );
+        count++;
       }
     }
     return grid;
   };
 
-  return <div style={{ display: 'flex', flexWrap: 'wrap', width: `${colCount * cellSize}px` }}>{generateGrid()}</div>;
+  const size = colCount * (cellSize);
+  return <div style={{ display: 'flex', flexWrap: 'wrap', width: `${size}px`, height: `${size}px` }}>{generateGrid()}</div>;
 };
 
 export default ByteArt;

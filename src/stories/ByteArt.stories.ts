@@ -26,6 +26,7 @@ export const Primary: Story = {
     rowCount: 16,
     colCount: 16,
     cellSize: 12,
-    border: '1px solid #888',
+    borderRadius: 10,
+    hexString: "0xdea102f6f2ac65501b2610c36a37e873ada2bdbedcd40f78ca10955455ff9274",
   },
 };
